@@ -2,6 +2,7 @@ import subprocess
 import os
 
 import pytest
+import numpy as np
 
 from stable_baselines import A2C, SAC
 # TODO: add support for continuous actions
@@ -80,9 +81,9 @@ def test_model_manipulation(model_class):
             loaded_acc_reward += reward
         loaded_acc_reward = sum(loaded_acc_reward) / N_TRIALS
         # assert <15% diff
-        assert model.action_probability(obs)[0].shape == (1,) and model.action_probability(obs)[1].shape == (1,), \
+        assert model.action_probability(obs)[0].shape == (1, 1) and model.action_probability(obs)[1].shape == (1, 1), \
             "Error: action_probability not returning correct shape"
-        assert np.isscalar(model.action_probability(obs, actions=env.action_space.sample())), \
+        assert np.prod(model.action_probability(obs, actions=env.action_space.sample()).shape) == 1, \
             "Error: not scalar probability"
         assert abs(acc_reward - loaded_acc_reward) / max(acc_reward, loaded_acc_reward) < 0.15, \
             "Error: the prediction seems to have changed between loading and saving"

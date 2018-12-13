@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 
 from stable_baselines.a2c import A2C
 from stable_baselines.ppo1 import PPO1
@@ -40,7 +41,7 @@ def test_identity_multidiscrete(model_class):
 
     assert np.array(model.action_probability(obs)).shape == (2, 1, 10), \
         "Error: action_probability not returning correct shape"
-    assert np.isscalar(model.action_probability(obs, actions=env.action_space.sample())), \
+    assert np.prod(model.action_probability(obs, actions=env.action_space.sample()).shape) == 1, \
         "Error: not scalar probability"
 
 
@@ -69,5 +70,5 @@ def test_identity_multibinary(model_class):
 
     assert model.action_probability(obs).shape == (1, 10), \
         "Error: action_probability not returning correct shape"
-    assert np.isscalar(model.action_probability(obs, actions=env.action_space.sample())), \
+    assert np.prod(model.action_probability(obs, actions=env.action_space.sample()).shape) == 1, \
         "Error: not scalar probability"
