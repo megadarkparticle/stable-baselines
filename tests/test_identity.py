@@ -47,6 +47,9 @@ def test_identity(model_name):
         action, _ = model.predict(obs)
         obs, reward, _, _ = env.step(action)
         reward_sum += reward
+    assert model.action_probability(obs).shape == (1, 10), "Error: action_probability not returning correct shape"
+    assert np.isscalar(model.action_probability(obs, actions=env.action_space.sample())), \
+        "Error: not scalar probability"
     assert reward_sum > 0.9 * n_trials
     # Free memory
     del model, env

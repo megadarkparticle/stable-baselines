@@ -368,7 +368,19 @@ class ActorCriticRLModel(BaseRLModel):
             if isinstance(self.action_space, gym.spaces.Discrete):
                 actions = actions.reshape((-1,))
                 assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."
-                actions_proba = actions_proba[actions]
+                actions_proba = actions_proba[np.arange(actions.shape[0]), actions]
+            elif isinstance(self.action_space, gym.spaces.MultiDiscrete):
+                actions = actions.reshape((-1, len(self.action_space.nvec)))
+                assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."
+                # Discrete action probability, over multiple categories
+                actions = np.swapaxes(actions, 0, 1)  # swap axis for easier categorical split
+                actions_proba = np.prod([proba[np.arange(act.shape[0]), act]
+                                         for proba, act in zip(actions_proba, actions)], axis=0)
+            elif isinstance(self.action_space, gym.spaces.MultiBinary):
+                actions = actions.reshape((-1, self.action_space.n))
+                assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."
+                # Bernoulli action probability, for every action
+                actions_proba = np.prod(actions_proba * actions + (1 - actions_proba) * (1 - actions), axis=1)
             elif isinstance(self.action_space, gym.spaces.Box):
                 actions = actions.reshape((-1,) + self.action_space.shape)
                 assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."

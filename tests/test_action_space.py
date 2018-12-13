@@ -38,6 +38,11 @@ def test_identity_multidiscrete(model_class):
         obs, reward, _, _ = env.step(action)
         reward_sum += reward
 
+    assert np.array(model.action_probability(obs)).shape == (2, 1, 10), \
+        "Error: action_probability not returning correct shape"
+    assert np.isscalar(model.action_probability(obs, actions=env.action_space.sample())), \
+        "Error: not scalar probability"
+
 
 @pytest.mark.slow
 @pytest.mark.parametrize("model_class", MODEL_LIST)
@@ -61,3 +66,8 @@ def test_identity_multibinary(model_class):
         action, _ = model.predict(obs)
         obs, reward, _, _ = env.step(action)
         reward_sum += reward
+
+    assert model.action_probability(obs).shape == (1, 10), \
+        "Error: action_probability not returning correct shape"
+    assert np.isscalar(model.action_probability(obs, actions=env.action_space.sample())), \
+        "Error: not scalar probability"
