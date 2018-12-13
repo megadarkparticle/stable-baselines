@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import os
 import glob
+import warnings
 
 import cloudpickle
 import numpy as np
@@ -164,6 +165,8 @@ class BaseRLModel(ABC):
     def action_probability(self, observation, state=None, mask=None):
         """
         Get the model's action probability distribution from an observation
+            - Discrete: probability for each possible action
+            - Box: mean and standard deviation of the action output
 
         :param observation: (np.ndarray) the input observation
         :param state: (np.ndarray) The last states (can be None, used in recurrent policies)
@@ -346,6 +349,10 @@ class ActorCriticRLModel(BaseRLModel):
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
         actions_proba = self.proba_step(observation, state, mask)
+
+        if len(actions_proba) == 0:  # empty list means not implemented
+            warnings.warn("Warning: action probability is not implemented for {} action space. Returning None.".format(type(self.action_space).__name__))
+            return None
 
         if not vectorized_env:
             if state is not None:

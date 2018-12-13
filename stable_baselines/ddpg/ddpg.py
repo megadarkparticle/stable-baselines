@@ -3,6 +3,7 @@ import os
 import time
 from collections import deque
 import pickle
+import warnings
 
 import gym
 import numpy as np
@@ -955,6 +956,8 @@ class DDPG(OffPolicyRLModel):
         observation = observation.reshape((-1,) + self.observation_space.shape)
 
         # here there are no action probabilities, as DDPG is continuous
+        warnings.warn("Warning: action probability is meaningless for DDPG. Returning simple prediction.")
+
         if vectorized_env:
             return self.sess.run(self.policy_tf.policy_proba, feed_dict={self.obs_train: observation})
         else:
