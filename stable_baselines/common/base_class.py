@@ -162,16 +162,24 @@ class BaseRLModel(ABC):
         pass
 
     @abstractmethod
-    def action_probability(self, observation, state=None, mask=None):
+    def action_probability(self, observation, state=None, mask=None, actions=None):
         """
-        Get the model's action probability distribution from an observation
+        If ``actions`` is ``None``, then get the model's action probability distribution from a given observation
+
+        depending on the action space the output is:
             - Discrete: probability for each possible action
             - Box: mean and standard deviation of the action output
+
+        However if ``actions`` is not ``None``, this function will return the probability that the given actions are 
+        taken with the given parameters (observation, state, ...) on this model.
 
         :param observation: (np.ndarray) the input observation
         :param state: (np.ndarray) The last states (can be None, used in recurrent policies)
         :param mask: (np.ndarray) The last masks (can be None, used in recurrent policies)
-        :return: (np.ndarray) the model's action probability distribution
+        :param actions: (np.ndarray) (OPTIONAL) For calculating the likelihood that the given actions are chosen by 
+            the model for each of the given parameters. Must have the same number of actions and observations.
+            (set to None to return the complete action probability distribution)
+        :return: (np.ndarray) the model's action probability
         """
         pass
 
@@ -339,7 +347,7 @@ class ActorCriticRLModel(BaseRLModel):
 
         return actions, states
 
-    def action_probability(self, observation, state=None, mask=None):
+    def action_probability(self, observation, state=None, mask=None, actions=None):
         if state is None:
             state = self.initial_state
         if mask is None:
@@ -351,8 +359,26 @@ class ActorCriticRLModel(BaseRLModel):
         actions_proba = self.proba_step(observation, state, mask)
 
         if len(actions_proba) == 0:  # empty list means not implemented
-            warnings.warn("Warning: action probability is not implemented for {} action space. Returning None.".format(type(self.action_space).__name__))
+            warnings.warn("Warning: action probability is not implemented for {} action space. Returning None."
+                .format(type(self.action_space).__name__))
             return None
+
+        if actions is not None:  # comparing the action distribution, to given actions
+            actions = np.array([actions])
+            if isinstance(self.action_space, gym.spaces.Discrete):
+                actions = actions.reshape((-1,))
+                assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."
+                actions_proba = actions_proba[actions]
+            elif isinstance(self.action_space, gym.spaces.Box):
+                actions = actions.reshape((-1,) + self.action_space.shape)
+                assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."
+                mu, std = actions_proba
+                # gaussian probability distribution
+                actions_proba = 1 / (np.sqrt(2 * np.pi * std**2)) * np.exp(-((actions - mu)**2) / (2 * std**2))
+            else:
+                warnings.warn("Warning: action_probability not implemented for {} actions space. Returning None."
+                    .format(type(self.action_space).__name__))
+                return None
 
         if not vectorized_env:
             if state is not None:
@@ -415,7 +441,7 @@ class OffPolicyRLModel(BaseRLModel):
         pass
 
     @abstractmethod
-    def action_probability(self, observation, state=None, mask=None):
+    def action_probability(self, observation, state=None, mask=None, actions=None):
         pass
 
     @abstractmethod

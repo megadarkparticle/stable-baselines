@@ -951,11 +951,14 @@ class DDPG(OffPolicyRLModel):
 
         return actions, None
 
-    def action_probability(self, observation, state=None, mask=None):
+    def action_probability(self, observation, state=None, mask=None, actions=None):
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
+
+        if actions is not None:
+            raise ValueError("Error: DDPG does not have action probabilities.")
 
         # here there are no action probabilities, as DDPG is continuous
         warnings.warn("Warning: action probability is meaningless for DDPG. Returning simple prediction.")
