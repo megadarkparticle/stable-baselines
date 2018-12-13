@@ -187,8 +187,8 @@ class ActorCriticPolicy(BasePolicy):
                 self.policy_proba = tf.nn.softmax(self.policy)
             elif self.is_box:
                 self.policy_proba = [self.proba_distribution.mean, self.proba_distribution.std]
-            #else:
-            self.policy_proba = []  # it will return nothing, as it is not implemented
+            else:
+                self.policy_proba = []  # it will return nothing, as it is not implemented
             self._value = self.value_fn[:, 0]
 
     def step(self, obs, state=None, mask=None, deterministic=False):
