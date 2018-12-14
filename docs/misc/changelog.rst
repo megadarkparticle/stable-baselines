@@ -13,8 +13,10 @@ Pre-Release 2.4.0a (WIP)
 - fixed DDPG that did not save target network parameters
 - fixed bug related to shape of true_reward (@abhiskk)
 - fixed example code in documentation of tf_util:Function (@JohannesAck)
+- added learning rate schedule for SAC
 - fixed action probability for continuous actions with actor-critic models
 - added optional parameter to action_probability for likelihood calculation of given action being taken.
+
 
 Release 2.3.0 (2018-12-05)
 --------------------------
