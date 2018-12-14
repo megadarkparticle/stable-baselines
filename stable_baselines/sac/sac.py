@@ -2,6 +2,7 @@ import sys
 import time
 import multiprocessing
 from collections import deque
+import warnings
 
 import numpy as np
 import tensorflow as tf
@@ -375,9 +376,13 @@ class SAC(OffPolicyRLModel):
                     infos_values = []
             return self
 
-    def action_probability(self, observation, state=None, mask=None):
+    def action_probability(self, observation, state=None, mask=None, actions=None):
+        if actions is not None:
+            raise ValueError("Error: DDPG does not have action probabilities.")
+
         # Here there are no action probabilities, as SAC is continuous
         # therefore we return the action vector
+        warnings.warn("Warning: action probability is meaningless for SAC. Returning simple prediction.")
         return self.predict(observation, state, mask, deterministic=True)[0]
 
     def predict(self, observation, state=None, mask=None, deterministic=True):

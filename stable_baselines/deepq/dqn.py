@@ -280,7 +280,7 @@ class DQN(OffPolicyRLModel):
             assert isinstance(self.action_space, gym.spaces.Discrete)
             actions = actions.reshape((-1,))
             assert observation.shape[0] == actions.shape[0], "Error: batch sizes differ for actions and observations."
-            actions_proba = actions_proba[actions]
+            actions_proba = actions_proba[np.arange(actions.shape[0]), actions]
 
         if not vectorized_env:
             if state is not None:

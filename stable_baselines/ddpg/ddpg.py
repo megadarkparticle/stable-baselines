@@ -964,9 +964,9 @@ class DDPG(OffPolicyRLModel):
         warnings.warn("Warning: action probability is meaningless for DDPG. Returning simple prediction.")
 
         if vectorized_env:
-            return self.sess.run(self.policy_tf.policy_proba, feed_dict={self.obs_train: observation})
+            return self.sess.run(self.actor_tf, feed_dict={self.obs_train: observation})
         else:
-            return self.sess.run(self.policy_tf.policy_proba, feed_dict={self.obs_train: observation})[0]
+            return self.sess.run(self.actor_tf, feed_dict={self.obs_train: observation})[0]
 
     def save(self, save_path):
         data = {

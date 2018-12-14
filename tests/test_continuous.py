@@ -80,11 +80,16 @@ def test_model_manipulation(model_class):
             obs, reward, _, _ = env.step(action)
             loaded_acc_reward += reward
         loaded_acc_reward = sum(loaded_acc_reward) / N_TRIALS
+
+        act_prob = model.action_probability(obs)
+        if model_class in [DDPG, SAC]:
+            assert act_prob.shape == (1, 1), "Error: action_probability not returning correct shape"
+        else:
+            assert act_prob[0].shape == (1, 1) and act_prob[1].shape == (1, 1), \
+                "Error: action_probability not returning correct shape"
+            assert np.prod(model.action_probability(obs, actions=env.action_space.sample()).shape) == 1, \
+                "Error: not scalar probability"
         # assert <15% diff
-        assert model.action_probability(obs)[0].shape == (1, 1) and model.action_probability(obs)[1].shape == (1, 1), \
-            "Error: action_probability not returning correct shape"
-        assert np.prod(model.action_probability(obs, actions=env.action_space.sample()).shape) == 1, \
-            "Error: not scalar probability"
         assert abs(acc_reward - loaded_acc_reward) / max(acc_reward, loaded_acc_reward) < 0.15, \
             "Error: the prediction seems to have changed between loading and saving"
 
