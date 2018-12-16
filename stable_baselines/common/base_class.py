@@ -385,13 +385,14 @@ class ActorCriticRLModel(BaseRLModel):
                 # Bernoulli action probability, for every action
                 actions_proba = np.prod(actions_proba * actions + (1 - actions_proba) * (1 - actions), axis=1)
             elif isinstance(self.action_space, gym.spaces.Box):
+                eps = 1e-10  # epsilon value for the act_std division
                 actions = actions.reshape((-1,) + self.action_space.shape)
                 assert observation.shape[0] == actions.shape[0], \
                     "Error: batch sizes differ for actions and observations."
                 act_mu, act_std = actions_proba
                 # gaussian probability distribution
-                actions_proba = (1 / (np.sqrt(2 * np.pi * act_std**2)) *
-                                 np.exp(-((actions - act_mu)**2) / (2 * act_std**2)))
+                actions_proba = (1 / (np.sqrt(2 * np.pi * act_std**2 + eps)) *
+                                 np.exp(-((actions - act_mu)**2) / (2 * act_std**2 + eps)))
             else:
                 warnings.warn("Warning: action_probability not implemented for {} actions space. Returning None."
                     .format(type(self.action_space).__name__))
