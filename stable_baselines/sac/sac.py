@@ -391,8 +391,8 @@ class SAC(OffPolicyRLModel):
             return self
 
     def action_probability(self, observation, state=None, mask=None, actions=None):
-        # SAC's tanh makes this hard to precisely calculte mu and std of action output
-        # A taloy young approximation of tanh could be used to get the distribution shape, but it would not be precise
+        # SAC's tanh makes this hard to precisely calculate mu and std of action output
+        # A taylor young approximation of tanh could be used to get the distribution shape, but it would not be precise
         # Or, this function could return a funcion, although it would not be consistent with the base class.
         if actions is None:  
             warnings.warn("Warning: even thought SAC has a Gaussian policy, it cannot return a distribution as it " +
@@ -407,20 +407,19 @@ class SAC(OffPolicyRLModel):
         act_mu, act_std = self.policy_tf.proba_step(observation)
         act_mu = act_mu.reshape((-1,) + self.action_space.shape)  # reshape to the correct action shape
         act_std = act_std.reshape((-1,) + self.action_space.shape)  # reshape to the correct action shape
-
         
-            assert isinstance(self.action_space, gym.spaces.Box)
-            eps = 1e-10  # epsilon value for the act_std division
-            actions = actions.reshape((-1,) + self.action_space.shape)
-            assert observation.shape[0] == actions.shape[0], \
-                "Error: batch sizes differ for actions and observations."
+        assert isinstance(self.action_space, gym.spaces.Box)
+        eps = 1e-10  # epsilon value for the act_std division
+        actions = actions.reshape((-1,) + self.action_space.shape)
+        assert observation.shape[0] == actions.shape[0], \
+            "Error: batch sizes differ for actions and observations."
 
-            # returning to the gaussian distribution, before squashing and sacling
-            actions = np.atanh(actions / np.abs(self.action_space.low))
+        # returning to the gaussian distribution, before squashing and scaling
+        actions = np.atanh(actions / np.abs(self.action_space.low))
 
-            # gaussian probability distribution
-            actions_proba = (1 / (np.sqrt(2 * np.pi * act_std**2 + eps)) *
-                             np.exp(-((actions - act_mu)**2) / (2 * act_std**2 + eps)))
+        # gaussian probability distribution
+        actions_proba = (1 / (np.sqrt(2 * np.pi * act_std**2 + eps)) *
+                         np.exp(-((actions - act_mu)**2) / (2 * act_std**2 + eps)))
 
         if not vectorized_env:
             actions = actions[0]
