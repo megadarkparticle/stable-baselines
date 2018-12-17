@@ -422,9 +422,9 @@ class SAC(OffPolicyRLModel):
                          np.exp(-((actions - act_mu)**2) / (2 * act_std**2 + eps)))
 
         if not vectorized_env:
-            actions = actions[0]
+            actions_proba = actions_proba[0]
 
-        return actions, None
+        return actions_proba
 
     def predict(self, observation, state=None, mask=None, deterministic=True):
         observation = np.array(observation)
