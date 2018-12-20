@@ -97,7 +97,6 @@ class BasePolicy(ABC):
     :param n_env: (int) The number of environments to run
     :param n_steps: (int) The number of steps to run for each environment
     :param n_batch: (int) The number of batch to run (n_envs * n_steps)
-    :param n_lstm: (int) The number of LSTM cells (for recurrent policies)
     :param reuse: (bool) If the policy is reusable or not
     :param scale: (bool) whether or not to scale the input
     :param obs_phs: (TensorFlow Tensor, TensorFlow Tensor) a tuple containing an override for observation placeholder
@@ -105,7 +104,7 @@ class BasePolicy(ABC):
     :param add_action_ph: (bool) whether or not to create an action placeholder
     """
 
-    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256, reuse=False, scale=False,
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, scale=False,
                  obs_phs=None, add_action_ph=False):
         self.n_env = n_env
         self.n_steps = n_steps
@@ -114,8 +113,7 @@ class BasePolicy(ABC):
                 self.obs_ph, self.processed_obs = observation_input(ob_space, n_batch, scale=scale)
             else:
                 self.obs_ph, self.processed_obs = obs_phs
-            self.masks_ph = tf.placeholder(tf.float32, [n_batch], name="masks_ph")  # mask (done t-1)
-            self.states_ph = tf.placeholder(tf.float32, [self.n_env, n_lstm * 2], name="states_ph")  # states
+
             self.action_ph = None
             if add_action_ph:
                 self.action_ph = tf.placeholder(dtype=ac_space.dtype, shape=(None,) + ac_space.shape, name="action_ph")
@@ -157,14 +155,13 @@ class ActorCriticPolicy(BasePolicy):
     :param n_env: (int) The number of environments to run
     :param n_steps: (int) The number of steps to run for each environment
     :param n_batch: (int) The number of batch to run (n_envs * n_steps)
-    :param n_lstm: (int) The number of LSTM cells (for recurrent policies)
     :param reuse: (bool) If the policy is reusable or not
     :param scale: (bool) whether or not to scale the input
     """
 
-    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256, reuse=False, scale=False):
-        super(ActorCriticPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=n_lstm,
-                                                reuse=reuse, scale=scale)
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, scale=False):
+        super(ActorCriticPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
+                                                scale=scale)
         self.pdtype = make_proba_dist_type(ac_space)
         self.is_discrete = isinstance(ac_space, Discrete)
         self.policy = None
@@ -242,9 +239,13 @@ class LstmPolicy(ActorCriticPolicy):
     """
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256, reuse=False, layers=None,
-                 cnn_extractor=nature_cnn, layer_norm=False, feature_extraction="cnn", **kwargs):
-        super(LstmPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm, reuse,
+                 net_arch=None, cnn_extractor=nature_cnn, layer_norm=False, feature_extraction="cnn", **kwargs):
+        super(LstmPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse,
                                          scale=(feature_extraction == "cnn"))
+
+        with tf.variable_scope("input", reuse=True):
+            self.masks_ph = tf.placeholder(tf.float32, [n_batch], name="masks_ph")  # mask (done t-1)
+            self.states_ph = tf.placeholder(tf.float32, [self.n_env, n_lstm * 2], name="states_ph")  # states
 
         if layers is None:
             layers = [64, 64]
@@ -310,8 +311,8 @@ class FeedForwardPolicy(ActorCriticPolicy):
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None, net_arch=None,
                  act_fun=tf.tanh, cnn_extractor=nature_cnn, feature_extraction="cnn", **kwargs):
-        super(FeedForwardPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256,
-                                                reuse=reuse, scale=(feature_extraction == "cnn"))
+        super(FeedForwardPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
+                                                scale=(feature_extraction == "cnn"))
 
         if layers is not None:
             warnings.warn("Usage of the `layers` parameter is deprecated! Use net_arch instead "
