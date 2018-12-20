@@ -332,7 +332,7 @@ class LstmPolicy(ActorCriticPolicy):
                 if not lstm_layer_constructed:
                     raise ValueError("The net_arch parameter must contain at least one occurrence of 'lstm'!")
 
-                self.value_fn = linear(rnn_output, 'vf', 1)
+                self.value_fn = linear(latent_value, 'vf', 1)
                 self.proba_distribution, self.policy, self.q_value = \
                     self.pdtype.proba_distribution_from_latent(latent_policy, latent_value)
         self.initial_state = np.zeros((self.n_env, n_lstm * 2), dtype=np.float32)
