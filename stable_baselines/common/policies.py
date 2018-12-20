@@ -239,7 +239,7 @@ class LstmPolicy(ActorCriticPolicy):
     """
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256, reuse=False, layers=None,
-                 net_arch=None, cnn_extractor=nature_cnn, layer_norm=False, feature_extraction="cnn", **kwargs):
+                 net_arch=None, act_fun=tf.tanh, cnn_extractor=nature_cnn, layer_norm=False, feature_extraction="cnn", **kwargs):
         super(LstmPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse,
                                          scale=(feature_extraction == "cnn"))
 
@@ -247,31 +247,98 @@ class LstmPolicy(ActorCriticPolicy):
             self.masks_ph = tf.placeholder(tf.float32, [n_batch], name="masks_ph")  # mask (done t-1)
             self.states_ph = tf.placeholder(tf.float32, [self.n_env, n_lstm * 2], name="states_ph")  # states
 
-        if layers is None:
-            layers = [64, 64]
+        if net_arch is None:  # Legacy mode
+            warnings.warn("The layers parameter is deprecated. Use the net_arch parameter instead.")
+            if layers is None:
+                layers = [64, 64]
 
-        with tf.variable_scope("model", reuse=reuse):
+            with tf.variable_scope("model", reuse=reuse):
+                if feature_extraction == "cnn":
+                    extracted_features = cnn_extractor(self.processed_obs, **kwargs)
+                else:
+                    extracted_features = tf.layers.flatten(self.processed_obs)
+                    for i, layer_size in enumerate(layers):
+                        extracted_features = act_fun(linear(extracted_features, 'pi_fc' + str(i), n_hidden=layer_size,
+                                                            init_scale=np.sqrt(2)))
+                input_sequence = batch_to_seq(extracted_features, self.n_env, n_steps)
+                masks = batch_to_seq(self.masks_ph, self.n_env, n_steps)
+                rnn_output, self.snew = lstm(input_sequence, masks, self.states_ph, 'lstm1', n_hidden=n_lstm,
+                                             layer_norm=layer_norm)
+                rnn_output = seq_to_batch(rnn_output)
+                value_fn = linear(rnn_output, 'vf', 1)
+
+                self.proba_distribution, self.policy, self.q_value = \
+                    self.pdtype.proba_distribution_from_latent(rnn_output, rnn_output)  #TODO: why not init_scale = 0.001 here like in the feedforward
+
+            self.value_fn = value_fn
+        else:  # Use the new net_arch parameter
+            if layers is not None:
+                warnings.warn("The new net_arch parameter overrides the deprecated layers parameter.")
             if feature_extraction == "cnn":
-                extracted_features = cnn_extractor(self.processed_obs, **kwargs)
-            else:
-                activ = tf.tanh
-                extracted_features = tf.layers.flatten(self.processed_obs)
-                for i, layer_size in enumerate(layers):
-                    extracted_features = activ(linear(extracted_features, 'pi_fc' + str(i), n_hidden=layer_size,
-                                                      init_scale=np.sqrt(2)))
-            input_sequence = batch_to_seq(extracted_features, self.n_env, n_steps)
-            masks = batch_to_seq(self.masks_ph, self.n_env, n_steps)
-            rnn_output, self.snew = lstm(input_sequence, masks, self.states_ph, 'lstm1', n_hidden=n_lstm,
-                                         layer_norm=layer_norm)
-            rnn_output = seq_to_batch(rnn_output)
-            value_fn = linear(rnn_output, 'vf', 1)
+                raise NotImplementedError()
 
-            self.proba_distribution, self.policy, self.q_value = \
-                self.pdtype.proba_distribution_from_latent(rnn_output, rnn_output)
+            with tf.variable_scope("model", reuse=reuse):
+                latent = tf.layers.flatten(self.processed_obs)
+                policy_only_layers = []  # Layer sizes of the network that only belongs to the policy network
+                value_only_layers = []  # Layer sizes of the network that only belongs to the value network
 
-        self.value_fn = value_fn
+                # Iterate through the shared layers and build the shared parts of the network
+                lstm_layer_constructed = False
+                for idx, layer in enumerate(net_arch):
+                    if isinstance(layer, int):  # Check that this is a shared layer
+                        layer_size = layer
+                        latent = act_fun(linear(latent, "shared_fc{}".format(idx), layer_size, init_scale=np.sqrt(2)))
+                    elif layer == "lstm":
+                        if lstm_layer_constructed:
+                            raise ValueError("The net_arch parameter must only contain one occurrence of 'lstm'!")
+                        input_sequence = batch_to_seq(latent, self.n_env, n_steps)
+                        masks = batch_to_seq(self.masks_ph, self.n_env, n_steps)
+                        rnn_output, self.snew = lstm(input_sequence, masks, self.states_ph, 'lstm1', n_hidden=n_lstm,
+                                                     layer_norm=layer_norm)
+                        latent = seq_to_batch(rnn_output)
+                        lstm_layer_constructed = True
+                    else:
+                        assert isinstance(layer, dict), "Error: the net_arch list can only contain ints and dicts"
+                        if 'pi' in layer:
+                            assert isinstance(layer['pi'],
+                                              list), "Error: net_arch[-1]['pi'] must contain a list of integers."
+                            policy_only_layers = layer['pi']
+
+                        if 'vf' in layer:
+                            assert isinstance(layer['vf'],
+                                              list), "Error: net_arch[-1]['vf'] must contain a list of integers."
+                            value_only_layers = layer['vf']
+                        break  # From here on the network splits up in policy and value network
+
+                # Build the non-shared part of the policy-network
+                latent_policy = latent
+                for idx, pi_layer_size in enumerate(policy_only_layers):
+                    if pi_layer_size == "lstm":
+                        raise NotImplementedError("LSTMs are only supported in the shared part of the policy network.")
+                    assert isinstance(pi_layer_size, int), "Error: net_arch[-1]['pi'] must only contain integers."
+                    latent_policy = act_fun(
+                        linear(latent_policy, "pi_fc{}".format(idx), pi_layer_size, init_scale=np.sqrt(2)))
+
+                # Build the non-shared part of the value-network
+                latent_value = latent
+                for idx, vf_layer_size in enumerate(value_only_layers):
+                    if vf_layer_size == "lstm":
+                        raise NotImplementedError("LSTMs are only supported in the shared part of the value function "
+                                                  "netowork.")
+                    assert isinstance(vf_layer_size, int), "Error: net_arch[-1]['vf'] must only contain integers."
+                    latent_value = act_fun(
+                        linear(latent_value, "vf_fc{}".format(idx), vf_layer_size, init_scale=np.sqrt(2)))
+
+                if not lstm_layer_constructed:
+                    raise ValueError("The net_arch parameter must contain at least one occurrence of 'lstm'!")
+
+                self.value_fn = linear(rnn_output, 'vf', 1)
+                self.proba_distribution, self.policy, self.q_value = \
+                    self.pdtype.proba_distribution_from_latent(latent_policy, latent_value)
         self.initial_state = np.zeros((self.n_env, n_lstm * 2), dtype=np.float32)
         self._setup_init()
+
+
 
     def step(self, obs, state=None, mask=None, deterministic=False):
         if deterministic:
