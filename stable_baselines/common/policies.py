@@ -239,7 +239,8 @@ class LstmPolicy(ActorCriticPolicy):
     """
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=256, reuse=False, layers=None,
-                 net_arch=None, act_fun=tf.tanh, cnn_extractor=nature_cnn, layer_norm=False, feature_extraction="cnn", **kwargs):
+                 net_arch=None, act_fun=tf.tanh, cnn_extractor=nature_cnn, layer_norm=False, feature_extraction="cnn",
+                 **kwargs):
         super(LstmPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse,
                                          scale=(feature_extraction == "cnn"))
 
@@ -267,8 +268,9 @@ class LstmPolicy(ActorCriticPolicy):
                 rnn_output = seq_to_batch(rnn_output)
                 value_fn = linear(rnn_output, 'vf', 1)
 
+                # TODO: why not init_scale = 0.001 here like in the feedforward
                 self.proba_distribution, self.policy, self.q_value = \
-                    self.pdtype.proba_distribution_from_latent(rnn_output, rnn_output)  #TODO: why not init_scale = 0.001 here like in the feedforward
+                    self.pdtype.proba_distribution_from_latent(rnn_output, rnn_output)
 
             self.value_fn = value_fn
         else:  # Use the new net_arch parameter
@@ -337,8 +339,6 @@ class LstmPolicy(ActorCriticPolicy):
                     self.pdtype.proba_distribution_from_latent(latent_policy, latent_value)
         self.initial_state = np.zeros((self.n_env, n_lstm * 2), dtype=np.float32)
         self._setup_init()
-
-
 
     def step(self, obs, state=None, mask=None, deterministic=False):
         if deterministic:
