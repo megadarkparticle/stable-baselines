@@ -232,6 +232,8 @@ class LstmPolicy(ActorCriticPolicy):
     :param n_lstm: (int) The number of LSTM cells (for recurrent policies)
     :param reuse: (bool) If the policy is reusable or not
     :param layers: ([int]) The size of the Neural network before the LSTM layer  (if None, default to [64, 64])
+    :param net_arch: (list) Specification of the actor-critic policy network architecture. Notation similar to the
+    format described in mlp_extractor but with additional support for a 'lstm' entry in the shared network part.
     :param cnn_extractor: (function (TensorFlow Tensor, ``**kwargs``): (TensorFlow Tensor)) the CNN feature extraction
     :param layer_norm: (bool) Whether or not to use layer normalizing LSTMs
     :param feature_extraction: (str) The feature extraction type ("cnn" or "mlp")
@@ -268,7 +270,6 @@ class LstmPolicy(ActorCriticPolicy):
                 rnn_output = seq_to_batch(rnn_output)
                 value_fn = linear(rnn_output, 'vf', 1)
 
-                # TODO: why not init_scale = 0.001 here like in the feedforward
                 self.proba_distribution, self.policy, self.q_value = \
                     self.pdtype.proba_distribution_from_latent(rnn_output, rnn_output)
 
@@ -335,6 +336,7 @@ class LstmPolicy(ActorCriticPolicy):
                     raise ValueError("The net_arch parameter must contain at least one occurrence of 'lstm'!")
 
                 self.value_fn = linear(latent_value, 'vf', 1)
+                # TODO: why not init_scale = 0.001 here like in the feedforward
                 self.proba_distribution, self.policy, self.q_value = \
                     self.pdtype.proba_distribution_from_latent(latent_policy, latent_value)
         self.initial_state = np.zeros((self.n_env, n_lstm * 2), dtype=np.float32)
