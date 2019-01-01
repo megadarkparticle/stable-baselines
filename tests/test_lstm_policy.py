@@ -30,11 +30,11 @@ class CustomLSTMPolicy4(LstmPolicy):
                          net_arch=[8, 'lstm', dict(vf=[5, 10], pi=[10])],
                          layer_norm=True, feature_extraction="mlp", **_kwargs)
 
+
 N_TRIALS = 100
 
 MODELS = [A2C, ACER, PPO2]
-# LSTM_POLICIES = [MlpLstmPolicy, CustomLSTMPolicy]
-LSTM_POLICIES = [CustomLSTMPolicy1, CustomLSTMPolicy2, CustomLSTMPolicy3, CustomLSTMPolicy4]
+LSTM_POLICIES = [MlpLstmPolicy, CustomLSTMPolicy1, CustomLSTMPolicy2, CustomLSTMPolicy3, CustomLSTMPolicy4]
 
 
 @pytest.mark.parametrize("model_class", MODELS)
